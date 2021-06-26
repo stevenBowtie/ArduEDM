@@ -17,7 +17,8 @@ int tgl_count = 0;
 bool tgl_state = 0;
 bool tgl_state_prev = 0;
 
-int spark_threshold = 30;
+int spark_threshold = 40;
+int pause_threshold = 14;
 int short_threshold =  5;
 float voltFactor = 3.65;
 float voltage = 0;
@@ -47,15 +48,24 @@ void loop(){
   if( tgl_state ){
     if( voltage > spark_threshold ){
       z_axis.move( 1 );
-      z_axis.setSpeed( -100 );
-      z_axis.run();
+      z_axis.setSpeed( -1000 );
       //Serial.println( "Plunging" );
     }
+    if( voltage < spark_threshold ){
+      z_axis.move( 1 );
+      z_axis.setSpeed( -20 );
+      
+    }
+    if( voltage < pause_threshold ){
+      z_axis.move( 1 );
+      z_axis.setSpeed( 0 );
+    } 
     if( voltage < short_threshold ){
       z_axis.move( -1 );
       z_axis.setSpeed( 1000 );
       //Serial.println( "Retracting" );
     }
+      z_axis.run();
   }
   z_axis.run();
 }

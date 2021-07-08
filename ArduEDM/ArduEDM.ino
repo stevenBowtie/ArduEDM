@@ -1,9 +1,14 @@
 #include "./ADC/ADC.h"
 #include "./TeensyStep/src/TeensyStep.h"
 #include <AccelStepper.h>
-#define STEP 4
-#define DIR  5
-#define EN   6
+
+#define STEP   4
+#define DIR    5
+#define EN     6
+#define ACCEL  5
+#define MSPEED 1000
+#define PULSEWIDTH    20
+#define UPDATEPERIOD  5000 //"Sufficient" per documentation
 
 #define POT       A0
 #define SPARK     A1
@@ -11,7 +16,10 @@
 #define BUTT_DN   10
 #define BUTT_TGL  12
 
-AccelStepper z_axis( AccelStepper::DRIVER, STEP, DIR );
+Stepper zAxis( STEP, DIR );
+RotateControl rc( PULSEWIDTH, UPDATEPERIOD );
+
+IntervalTimer arcPulseTmr; //IntervalTimer uses PIT timer and is nicer to work with
 
 int potVal;
 int tgl_threshold = 49;
@@ -28,16 +36,13 @@ unsigned long lastPrint = 0;
 
 void setup(){
   pinMode( EN, OUTPUT );
-  pinMode( STEP, OUTPUT );
-  pinMode( DIR, OUTPUT );
   pinMode( BUTT_DN, INPUT_PULLUP );
   pinMode( BUTT_UP, INPUT_PULLUP );
   pinMode( BUTT_TGL, INPUT_PULLUP );
   digitalWrite( EN, 0 );  //EN is actually !EN
-  digitalWrite( DIR, 0 );
   Serial.begin( 115200 );
-  z_axis.setAcceleration( 5 );
-  z_axis.setMaxSpeed( 1000 );
+  zAxis.setAcceleration( ACCEL );
+  zAxis.setMaxSpeed( MSPEED );
 }
 
 void loop(){
@@ -49,27 +54,34 @@ void loop(){
   }
   if( tgl_state ){
     if( voltage > spark_threshold ){
-      z_axis.move( 1 );
-      z_axis.setSpeed( -1000 );
+      zAxis.move( 1 );
+      zAxis.setSpeed( -1000 );
       //Serial.println( "Plunging" );
     }
     if( voltage < spark_threshold ){
-      z_axis.move( 1 );
-      z_axis.setSpeed( -20 );
+      zAxis.move( 1 );
+      zAxis.setSpeed( -20 );
       
     }
     if( voltage < pause_threshold ){
-      z_axis.move( 1 );
-      z_axis.setSpeed( 0 );
+      zAxis.move( 1 );
+      zAxis.setSpeed( 0 );
     } 
     if( voltage < short_threshold ){
-      z_axis.move( -1 );
-      z_axis.setSpeed( 1000 );
+      zAxis.move( -1 );
+      zAxis.setSpeed( 1000 );
       //Serial.println( "Retracting" );
     }
-      z_axis.run();
+      zAxis.run();
   }
-  z_axis.run();
+  zAxis.run();
+}
+
+void check_depth(){
+  //Add math to turn counts into real distance
+  if( zAxis.getPosition() > maxDepth ){
+    //Stop drilling cycle and retract
+  }
 }
 
 void check_tgl(){
@@ -86,13 +98,13 @@ void check_tgl(){
 void check_pot(){
   potVal = analogRead( POT );
   if( !digitalRead( BUTT_UP ) ){
-    z_axis.setSpeed( potVal );
+    zAxis.setSpeed( potVal );
   }
   else if( !digitalRead( BUTT_DN ) ){
-    z_axis.setSpeed( potVal * -1 );
+    zAxis.setSpeed( potVal * -1 );
   }
   else{
-    z_axis.setSpeed( 0 );
+    zAxis.setSpeed( 0 );
   }
 }
 

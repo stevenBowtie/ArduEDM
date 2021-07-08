@@ -1,3 +1,5 @@
+#include "./ADC/ADC.h"
+#include "./TeensyStep/src/TeensyStep.h"
 #include <AccelStepper.h>
 #define STEP 4
 #define DIR  5

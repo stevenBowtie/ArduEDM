@@ -1,5 +1,7 @@
 #include "./ADC/ADC.h"
 #include "./TeensyStep/src/TeensyStep.h"
+#include "./TeensyTimerTool/src/TeensyTimerTool.h"
+using namespace TeensyTimerTool;
 #include <AccelStepper.h>
 
 #define STEP   4
@@ -18,21 +20,26 @@
 
 Stepper zAxis( STEP, DIR );
 RotateControl rc( PULSEWIDTH, UPDATEPERIOD );
+ADC *arcADC = new ADC();
 
-IntervalTimer arcPulseTmr; //IntervalTimer uses PIT timer and is nicer to work with
+OneShotTimer pulseTimer;
+//IntervalTimer arcPulseTmr; //IntervalTimer uses PIT timer and is nicer to work with
 
 int potVal;
 int tgl_threshold = 49;
 int tgl_count = 0;
 bool tgl_state = 0;
 bool tgl_state_prev = 0;
+bool pulseTransitionFlag = 0;
 
 int spark_threshold = 40;
 int pause_threshold = 14;
 int short_threshold =  5;
+int current_reading;
 float voltFactor = 3.65;
 float voltage = 0;
 unsigned long lastPrint = 0;
+unsigned long maxDepth = 0;
 
 void setup(){
   pinMode( EN, OUTPUT );
@@ -43,38 +50,16 @@ void setup(){
   Serial.begin( 115200 );
   zAxis.setAcceleration( ACCEL );
   zAxis.setMaxSpeed( MSPEED );
+  arcADC->adc0->setConversionSpeed(ADC_CONVERSION_SPEED::VERY_LOW_SPEED);
+  arcADC->adc0->enableInterrupts( handle_ADC_ISR );
+  pulseTimer.begin(handle_timer_isr);
 }
 
 void loop(){
   check_pot();  
   check_tgl();
   voltage = get_voltage();
-  if( ( millis() - lastPrint ) > 100 ){
-    Serial.println( voltage );
-  }
-  if( tgl_state ){
-    if( voltage > spark_threshold ){
-      zAxis.move( 1 );
-      zAxis.setSpeed( -1000 );
-      //Serial.println( "Plunging" );
-    }
-    if( voltage < spark_threshold ){
-      zAxis.move( 1 );
-      zAxis.setSpeed( -20 );
-      
-    }
-    if( voltage < pause_threshold ){
-      zAxis.move( 1 );
-      zAxis.setSpeed( 0 );
-    } 
-    if( voltage < short_threshold ){
-      zAxis.move( -1 );
-      zAxis.setSpeed( 1000 );
-      //Serial.println( "Retracting" );
-    }
-      zAxis.run();
-  }
-  zAxis.run();
+  
 }
 
 void check_depth(){
@@ -98,13 +83,13 @@ void check_tgl(){
 void check_pot(){
   potVal = analogRead( POT );
   if( !digitalRead( BUTT_UP ) ){
-    zAxis.setSpeed( potVal );
+    //zAxis.setSpeed( potVal );
   }
   else if( !digitalRead( BUTT_DN ) ){
-    zAxis.setSpeed( potVal * -1 );
+    //zAxis.setSpeed( potVal * -1 );
   }
   else{
-    zAxis.setSpeed( 0 );
+    //zAxis.setSpeed( 0 );
   }
 }
 
@@ -112,3 +97,32 @@ float get_voltage(){
   int reading = analogRead( SPARK );
   return reading/voltFactor; 
 }
+
+void handle_ADC_ISR() {
+    current_reading = arcADC->adc0->analogReadContinuous();
+    if (current_reading < short_threshold) {
+        //too far
+    }
+    if (current_reading < spark_threshold ) {
+        //Begin arc
+        if (!pulseTransitionFlag) {
+            pulseTimer.trigger(20);
+            pulseTransitionFlag = 1;
+        }
+    }
+    if (current_reading > spark_threshold) {
+        //Drive forward
+        pulseTransitionFlag = 0;
+    }
+}
+
+void handle_timer_isr() {
+
+}
+/*
+Turn on transistor
+if it is above the sparkover threshold drive forward
+if it transitioned from sparkover to arc start timer 
+if it is short circuit back up
+
+*/

@@ -4,3 +4,6 @@
 [submodule "ArduEDM/TeensyStep"]
 	path = ArduEDM/TeensyStep
 	url = https://github.com/luni64/TeensyStep.git
+[submodule "ArduEDM/TeensyTimerTool"]
+	path = ArduEDM/TeensyTimerTool
+	url = https://github.com/luni64/TeensyTimerTool.git

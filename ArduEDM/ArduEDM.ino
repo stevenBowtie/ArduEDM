@@ -1,7 +1,7 @@
 #include "./ADC/ADC.h"
-#include "./TeensyStep/src/TeensyStep.h"
-#include "./TeensyTimerTool/src/TeensyTimerTool.h"
-#include <AccelStepper.h>
+#include <TeensyStep.h>
+#include <TeensyTimerTool.h>
+//#include <AccelStepper.h>
 //using namespace TeensyTimerTool;
 
 #define STEP   4
@@ -43,7 +43,7 @@ int pulse_off_time = 20;
 float voltFactor = 3.65;
 float voltage = 0;
 unsigned long lastPrint = 0;
-unsigned long maxDepth = 0;
+int maxDepth = 0;
 
 void setup(){
   pinMode( EN, OUTPUT );
@@ -52,8 +52,8 @@ void setup(){
   pinMode( BUTT_TGL, INPUT_PULLUP );
   digitalWrite( EN, 0 );  //EN is actually !EN
   Serial.begin( 115200 );
-  zAxis.setAcceleration( ACCEL );
-  zAxis.setMaxSpeed( MSPEED );
+  //zAxis.setAcceleration( ACCEL );
+  //zAxis.setMaxSpeed( MSPEED );
   arcADC->adc0->setConversionSpeed(ADC_CONVERSION_SPEED::VERY_LOW_SPEED);
   arcADC->adc0->enableInterrupts( handle_ADC_ISR );
   pulseTimer.begin(handle_timer_isr);
@@ -67,9 +67,11 @@ void loop(){
 
 void check_depth(){
   //Add math to turn counts into real distance
+  
   if( zAxis.getPosition() > maxDepth ){
     //Stop drilling cycle and retract
   }
+  
 }
 
 void check_tgl(){

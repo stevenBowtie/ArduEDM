@@ -1,8 +1,8 @@
 #include "./ADC/ADC.h"
 #include "./TeensyStep/src/TeensyStep.h"
 #include "./TeensyTimerTool/src/TeensyTimerTool.h"
-using namespace TeensyTimerTool;
 #include <AccelStepper.h>
+using namespace TeensyTimerTool;
 
 #define STEP   4
 #define DIR    5
@@ -14,6 +14,7 @@ using namespace TeensyTimerTool;
 
 #define POT       A0
 #define SPARK     A1
+#define IGBT      39
 #define BUTT_UP   11
 #define BUTT_DN   10
 #define BUTT_TGL  12
@@ -31,11 +32,14 @@ int tgl_count = 0;
 bool tgl_state = 0;
 bool tgl_state_prev = 0;
 bool pulseTransitionFlag = 0;
+bool igbt_next_state = 0;
 
 int spark_threshold = 40;
 int pause_threshold = 14;
 int short_threshold =  5;
 int current_reading;
+int pulse_on_time = 20;
+int pulse_off_time = 20;
 float voltFactor = 3.65;
 float voltage = 0;
 unsigned long lastPrint = 0;
@@ -59,7 +63,6 @@ void loop(){
   check_pot();  
   check_tgl();
   voltage = get_voltage();
-  
 }
 
 void check_depth(){
@@ -106,9 +109,10 @@ void handle_ADC_ISR() {
     if (current_reading < spark_threshold ) {
         //Begin arc
         if (!pulseTransitionFlag) {
-            pulseTimer.trigger(20);
+            pulseTimer.trigger(pulse_on_time);
             pulseTransitionFlag = 1;
         }
+
     }
     if (current_reading > spark_threshold) {
         //Drive forward
@@ -117,12 +121,22 @@ void handle_ADC_ISR() {
 }
 
 void handle_timer_isr() {
-
+    if (igbt_next_state) {
+        //Turn transistor off
+        digitalWriteFast( IGBT, 0 );
+        igbt_next_state = 1;
+        pulseTimer.trigger(pulse_off_time);
+    }
+    else {
+        //Turn the transistor on
+        digitalWriteFast(IGBT, 1);
+        igbt_next_state = 0;
+    }
 }
+
 /*
 Turn on transistor
 if it is above the sparkover threshold drive forward
 if it transitioned from sparkover to arc start timer 
 if it is short circuit back up
-
 */

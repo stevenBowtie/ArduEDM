@@ -2,7 +2,7 @@
 #include "./TeensyStep/src/TeensyStep.h"
 #include "./TeensyTimerTool/src/TeensyTimerTool.h"
 #include <AccelStepper.h>
-using namespace TeensyTimerTool;
+//using namespace TeensyTimerTool;
 
 #define STEP   4
 #define DIR    5
@@ -23,7 +23,7 @@ Stepper zAxis( STEP, DIR );
 RotateControl rc( PULSEWIDTH, UPDATEPERIOD );
 ADC *arcADC = new ADC();
 
-OneShotTimer pulseTimer;
+TeensyTimerTool::OneShotTimer pulseTimer;
 //IntervalTimer arcPulseTmr; //IntervalTimer uses PIT timer and is nicer to work with
 
 int potVal;

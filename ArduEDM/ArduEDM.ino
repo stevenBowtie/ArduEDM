@@ -4,8 +4,8 @@
 //#include <AccelStepper.h>
 //using namespace TeensyTimerTool;
 
-#define STEP   4
-#define DIR    5
+#define STEP   37
+#define DIR    38
 #define EN     6
 #define ACCEL  5000
 #define MSPEED 1000
@@ -24,7 +24,7 @@ Stepper zAxis( STEP, DIR );
 RotateControl rc( PULSEWIDTH, UPDATEPERIOD );
 ADC *arcADC = new ADC();
 
-TeensyTimerTool::OneShotTimer pulseTimer;
+//TeensyTimerTool::OneShotTimer pulseTimer;
 //IntervalTimer arcPulseTmr; //IntervalTimer uses PIT timer and is nicer to work with
 
 int potVal;
@@ -39,7 +39,7 @@ int spark_servo_v = 45;
 int spark_threshold = 40;
 int pause_threshold = 14;
 int short_threshold =  5;
-int current_reading;
+int current_reading = 5;
 int pulse_on_time = 20;
 int pulse_off_time = 20;
 int sample_buffer[SAMPLE_SIZE];
@@ -53,9 +53,9 @@ int maxDepth = 0;
 
 void handle_ADC_ISR() {
   //Sample quickly into a buffer based on interrupt
-  current_reading = arcADC->adc0->analogReadContinuous();
-  sample_buffer[sample_count] = analogRead( SPARK );
-  sample_count < SAMPLE_SIZE ? sample_count++ : sample_count = 0;
+  arcADC->adc0->analogReadContinuous();
+  sample_buffer[sample_count] = current_reading;
+  sample_count < SAMPLE_SIZE -1 ? sample_count++ : sample_count = 0;
 }
 
 void handle_timer_isr() {
@@ -63,7 +63,7 @@ void handle_timer_isr() {
         //Turn transistor off
         digitalWriteFast( IGBT, 0 );
         igbt_next_state = 1;
-        pulseTimer.trigger(pulse_off_time);
+        //pulseTimer.trigger(pulse_off_time);
     }
     else {
         //Turn the transistor on
@@ -129,6 +129,8 @@ void servo_handle(){
 }
 
 void setup(){
+  delay(5000);
+  Serial.begin( 115200 );
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, 1);
   pinMode( EN, OUTPUT );
@@ -136,20 +138,31 @@ void setup(){
   pinMode( BUTT_UP, INPUT_PULLUP );
   pinMode( BUTT_TGL, INPUT_PULLUP );
   digitalWrite( EN, 0 );  //EN is actually !EN
-  Serial.begin( 115200 );
   zAxis.setAcceleration( ACCEL );
   zAxis.setMaxSpeed( MSPEED );
   //rc.overrideSpeed( 0 );
   rc.rotateAsync( zAxis );
+  
+  Serial.println("2 wtf");
+  pinMode( SPARK, INPUT );
+  //arcADC->adc0->setReference( ADC_REFERENCE::REF_3V3 );
+  arcADC->adc0->setAveraging(16);
+  arcADC->adc0->setResolution(16);
   arcADC->adc0->setConversionSpeed(ADC_CONVERSION_SPEED::VERY_LOW_SPEED);
+  arcADC->adc0->setSamplingSpeed(ADC_SAMPLING_SPEED::MED_SPEED);
   arcADC->adc0->enableInterrupts( handle_ADC_ISR );
-  pulseTimer.begin(handle_timer_isr);
+  arcADC->adc0->startContinuous( SPARK );
+  //pulseTimer.begin(handle_timer_isr);
+  Serial.println(" wtf");
   delay(100);
 }
 
 void loop(){
+  Serial.print("Reading: ");
+  Serial.println( (uint16_t)arcADC->adc0->analogReadContinuous() );
+  rc.rotateAsync( zAxis );
   digitalWrite( LED_BUILTIN, tgl_state);
-  check_pot();  
+  //check_pot();  
   check_tgl();
   if( tgl_state ){
     servo_handle();

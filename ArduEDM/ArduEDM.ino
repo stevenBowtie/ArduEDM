@@ -46,14 +46,14 @@ int sample_buffer[SAMPLE_SIZE];
 int sample_count = 0;
 int maxSpark = 0;
 float servo_factor = 100;
-float voltFactor = 3.65;
+float voltFactor = 398.29;
 float voltage = 0;
 unsigned long lastPrint = 0;
 int maxDepth = 0;
 
 void handle_ADC_ISR() {
   //Sample quickly into a buffer based on interrupt
-  arcADC->adc0->analogReadContinuous();
+  current_reading = arcADC->adc0->analogReadContinuous();
   sample_buffer[sample_count] = current_reading;
   sample_count < SAMPLE_SIZE -1 ? sample_count++ : sample_count = 0;
 }
@@ -93,7 +93,7 @@ void check_tgl(){
 }
 
 void check_pot(){
-  potVal = analogRead( POT );
+  potVal = 1024; //analogRead( POT );
   if( !tgl_state){
     if( !digitalRead( BUTT_UP ) ){
       Serial.println( rc.getCurrentSpeed() );
@@ -119,17 +119,16 @@ void updateMaxReading(){
   for( int i=0; i < SAMPLE_SIZE; i++ ){
     if( sample_buffer[i] > maxSpark ){ maxSpark = sample_buffer[i]; }
   }
-  maxSpark = maxSpark * voltFactor;
+  maxSpark = maxSpark / voltFactor;
 }
 
 void servo_handle(){
   updateMaxReading();
-  float overrideFactor = (maxSpark - spark_servo_v) / servo_factor;
+  float overrideFactor =  (spark_servo_v - maxSpark) / servo_factor;
   rc.overrideSpeed( overrideFactor );
 }
 
 void setup(){
-  delay(5000);
   Serial.begin( 115200 );
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, 1);
@@ -143,9 +142,8 @@ void setup(){
   //rc.overrideSpeed( 0 );
   rc.rotateAsync( zAxis );
   
-  Serial.println("2 wtf");
   pinMode( SPARK, INPUT );
-  //arcADC->adc0->setReference( ADC_REFERENCE::REF_3V3 );
+  arcADC->adc0->setReference( ADC_REFERENCE::REF_3V3 );
   arcADC->adc0->setAveraging(16);
   arcADC->adc0->setResolution(16);
   arcADC->adc0->setConversionSpeed(ADC_CONVERSION_SPEED::VERY_LOW_SPEED);
@@ -153,16 +151,14 @@ void setup(){
   arcADC->adc0->enableInterrupts( handle_ADC_ISR );
   arcADC->adc0->startContinuous( SPARK );
   //pulseTimer.begin(handle_timer_isr);
-  Serial.println(" wtf");
-  delay(100);
 }
 
 void loop(){
   Serial.print("Reading: ");
-  Serial.println( (uint16_t)arcADC->adc0->analogReadContinuous() );
+  Serial.println( current_reading/voltFactor );
   rc.rotateAsync( zAxis );
   digitalWrite( LED_BUILTIN, tgl_state);
-  //check_pot();  
+  check_pot();  
   check_tgl();
   if( tgl_state ){
     servo_handle();
